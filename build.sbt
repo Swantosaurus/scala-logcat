@@ -1,11 +1,7 @@
 ThisBuild / scalaVersion := "3.3.0"
-name := "test"
+name := "scala-logcat"
 
-lazy val global = project
-  .in(file("."))
-  .settings(
-    name := "global",
-  )
+run := (catlog / Compile / run).evaluated 
 
 lazy val strings = project
   .in(file("strings"))
@@ -26,11 +22,5 @@ lazy val commandLinePrinter = project
     name := "commandLinePrinter",
   )
 
-lazy val main = project
-  .in(file("main"))
-  .settings(
-    name := "main",
-  )
-  .dependsOn(global, catlog, commandLinePrinter)
 
 
