@@ -147,15 +147,16 @@ class Program {
     val levelSize = 3
     val headerSize = packageSize + 1 + tagSize + 1 + levelSize + 1
     val windowSize = terminal.getWidth() - headerSize
+    val firstWindow = if(message.message.take(1) == "\t") windowSize - 3 else windowSize
     val messageSize = message.message.length()
     var written = 0
 
     terminal.writer().println(
       colorPrinter.colorYellow(processName.getOrElse(" ").split('.').last.take(packageSize).padLeft(packageSize, ' ')) + " " +
       colorPrinter.colorBlue(message.tag.take(tagSize).padTo(tagSize, ' ')) + " " + 
-      message.level.colorizeType() + " " + message.message.take(windowSize)
+      message.level.colorizeType() + " " + message.message.take(firstWindow)
     )
-    written += windowSize
+    written += firstWindow
     while (written < messageSize) {
       terminal.writer().println(" " * headerSize + message.message.slice(written, written + windowSize))
       written += windowSize
