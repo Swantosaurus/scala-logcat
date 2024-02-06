@@ -1,18 +1,17 @@
-package com.swantosaurus.catlog
+package com.swantosaurus.catlog.input
 
-import com.swantosaurus.catlog.LogParser
-
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.*
-import akka.stream.*
-import scala.sys.process.*
-import org.jline.reader._
-import org.jline.terminal._
-import scala.concurrent.Future
 import akka.Done
-import scala.concurrent.Promise
-import scala.concurrent.ExecutionContext
+import akka.actor.ActorSystem
+import akka.stream.*
+import akka.stream.scaladsl.*
+import com.swantosaurus.catlog.input.LogParser
+import com.swantosaurus.catlog.model.{LogMessage, LogOutput}
+import org.jline.reader.*
+import org.jline.terminal.*
+
 import java.util.UUID
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.sys.process.*
 
 implicit val system: ActorSystem = ActorSystem("AdbLogcatStream")
 implicit val materializer: ActorMaterializer = ActorMaterializer()

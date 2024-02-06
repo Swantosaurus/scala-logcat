@@ -1,6 +1,7 @@
 package com.swantosaurus.catlog
 
-import fansi._
+import com.swantosaurus.catlog.utils.TextAlignment
+import fansi.*
 
 case class OutputCell(
   val name: String,

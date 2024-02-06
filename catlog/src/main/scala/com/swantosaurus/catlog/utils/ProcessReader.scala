@@ -1,10 +1,11 @@
-package com.swantosaurus.catlog
-import sys.process._
+package com.swantosaurus.catlog.utils
+
 import scala.collection.Map
+import scala.sys.process.*
 
 class ProcessReader {
-  var pidToPackageName: Option[Map[Int, String]] = None 
-  var packageNameToPid: Option[Map[String, Int]] = None
+  private var pidToPackageName: Option[Map[Int, String]] = None 
+  private var packageNameToPid: Option[Map[String, Int]] = None
   readAdbPs()
 
   def getProcessPackageName(pid: Int): Option[String] = { 

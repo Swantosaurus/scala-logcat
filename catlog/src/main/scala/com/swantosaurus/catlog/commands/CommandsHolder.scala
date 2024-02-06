@@ -1,6 +1,6 @@
-package com.swantosaurus.catlog
+package com.swantosaurus.catlog.commands
 
-import com.swantosaurus.catlog.Command
+import com.swantosaurus.catlog.commands.Command
 
 case class CommandHolder(private val commands: List[Command], private val defaultCommand: Command) {
   def getCommand(command: String): Option[Command] = {

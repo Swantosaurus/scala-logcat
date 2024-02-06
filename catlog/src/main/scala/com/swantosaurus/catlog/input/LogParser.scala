@@ -1,11 +1,11 @@
-package com.swantosaurus.catlog
+package com.swantosaurus.catlog.input
 
-import com.swantosaurus.catlog.LogOutput
-import com.swantosaurus.catlog.LogMessage
+import com.swantosaurus.catlog.model.{IgnoreOutput, LogMessage, LogOutput, ParseError}
+
 import scala.util.matching.Regex
 
 object LogParser {
-  val logLinePattern: Regex = """([A-Z])\/([a-zA-Z0-9_-]+) *\( *([0-9]+)\): ([a-zA-Z_ 0-9']+)""".r
+private val logLinePattern: Regex = """([A-Z])\/([a-zA-Z0-9_-]+) *\( *([0-9]+)\): (.+)""".r
 
   def parse(line: String): LogOutput = {
     if(line == "- waiting for device -") {
@@ -13,6 +13,7 @@ object LogParser {
     }
     logLinePattern.findFirstMatchIn(line) match {
       case Some(m) =>
+        
         LogMessage(
             level = m.group(1),
             tag = m.group(2),

@@ -1,4 +1,4 @@
-package com.swantosaurus.catlog
+package com.swantosaurus.catlog.utils
 
 enum TextAlignment {
   case Left

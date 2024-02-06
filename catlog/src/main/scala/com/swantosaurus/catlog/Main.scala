@@ -1,22 +1,33 @@
 package com.swantosaurus.catlog
 
-import com.swantosaurus.catlog._
+import com.swantosaurus.catlog.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.control.Breaks._
+import scala.util.control.Breaks.*
 import scala.concurrent.Future
-
 import com.swantosaurus.commandLinePrinter.ColorPrinter
+
 import java.io.PrintWriter
 import akka.Done
-import com.swantosaurus.catlog.CommandHolder
-
+import com.swantosaurus.catlog.commands.{CatlogCommands, CommandHolder}
+import com.swantosaurus.catlog.filter.{LevelFilter, LogFilter, ProcessFilter}
+import com.swantosaurus.catlog.input.AdbLogcatStream
+import com.swantosaurus.catlog.model.{IgnoreOutput, LogMessage, ParseError}
+import com.swantosaurus.catlog.utils.ProcessReader
 import org.jline.terminal.TerminalBuilder
 import org.jline.terminal.Terminal
 import org.jline.reader.LineReaderBuilder
 import org.jline.reader.LineReader
 import org.jline.utils.InfoCmp
+
+import akka.actor.ActorSystem
+import akka.stream.scaladsl._
+import akka.stream.Materializer
+
 import scala.runtime.stdLibPatches.language.future
+
+implicit val sys : ActorSystem = ActorSystem()
+implicit val materializer : Materializer = Materializer(sys)
 
 /**
   * Main class to start the program
@@ -30,15 +41,17 @@ class Program {
   private val colorPrinter = ColorPrinter() 
   private val packageReader = ProcessReader()
   private var printingThread : Option[Future[Done]] = None
-  private var pid : Option[Int] = None
+  private val filters = List[LogFilter](
+    new ProcessFilter(packageReader),
+    new LevelFilter(),
+  )
 
   private val commands = CatlogCommands(
     stream,
     reader,
     packageReader,
     programStateHolder,
-    (newPid) => pid = newPid,
-    () => pid,
+    filters,
     printHelp,
     startLogging
   )
@@ -47,7 +60,7 @@ class Program {
   printHelp()
   setupInput() 
 
-  def printHelp() : Unit = {
+  private def printHelp() : Unit = {
     terminal.puts(InfoCmp.Capability.clear_screen)
     terminal.writer().println("Logcat help")
     terminal.writer().println("This program is used to view and filter logcat output from an android device")
@@ -55,11 +68,11 @@ class Program {
     terminal.writer().println(commands.get.getHelpString())
   }
 
-  def startLogging() : Unit = {
+  private def startLogging() : Unit = {
     printingThread = Some(setupTerminalLoggingThread(terminal, stream, reader, ColorPrinter()))
   }
 
-  def setupInput() : Unit = {
+  private def setupInput() : Unit = {
       while(programStateHolder.get() == ProgramState.Running) {
         val line = reader.readLine("logcat > ")
         handleUserInput(line)
@@ -88,13 +101,9 @@ class Program {
           printError(line)
         }
         case message: LogMessage => { 
-          val processName = packageReader.getProcessPackageName(message.processId)
-          if(processName.isDefined){
-            if(pid.isDefined && pid.get == message.processId) {
-              printLog(message)
-            } else if(pid.isEmpty) {
-              printLog(message)
-            }
+          filters.foldLeft(Option(message))((log, filter) => filter.filter(log)) match {
+            case Some(log) => printLog(log)
+            case None => {}
           }
         }
         case IgnoreOutput => {}
@@ -102,21 +111,22 @@ class Program {
     })
     return source
   }
+
   extension(s: String) {
     def colorizeType(): String = {
       val padString = fansi.Color.Black(s" ${s} ").render
       s match {
-        case  "W" => fansi.Back.Yellow(padString).render
+        case "W" => fansi.Back.Magenta(padString).render
         case "E" => fansi.Back.Red(padString).render
-        case "I" => fansi.Back.Green(padString).render
-        case "D" => fansi.Back.Blue(padString).render
+        case "I" => fansi.Back.Cyan(padString).render
+        case "D" => fansi.Back.LightBlue(padString).render
         case _ => fansi.Back.White(padString).render
       }
     } 
   }
 
   
-  def handleUserInput(input: String): Unit = {
+  private def handleUserInput(input: String): Unit = {
     commands.get.run(input)
   }
   
@@ -129,26 +139,40 @@ class Program {
     }
   }
   
-  def printLog(message: LogMessage): Unit = {
+  private def printLog(message: LogMessage): Unit = {
     val processName = packageReader.getProcessPackageName(message.processId)
-    reader.callWidget(LineReader.CLEAR)
+    reader.callWidget(LineReader.CLEAR) 
+    val packageSize = 15
+    val tagSize = 15
+    val levelSize = 3
+    val headerSize = packageSize + 1 + tagSize + 1 + levelSize + 1
+    val windowSize = terminal.getWidth() - headerSize
+    val messageSize = message.message.length()
+    var written = 0
+
     terminal.writer().println(
-      colorPrinter.colorYellow(processName.getOrElse(" ").split('.').last.take(30).padLeft(30, ' ')) + " " +
-      message.tag.take(20).padTo(20, ' ') + " " + 
-      message.level.colorizeType() + " " + message.message
+      colorPrinter.colorYellow(processName.getOrElse(" ").split('.').last.take(packageSize).padLeft(packageSize, ' ')) + " " +
+      colorPrinter.colorBlue(message.tag.take(tagSize).padTo(tagSize, ' ')) + " " + 
+      message.level.colorizeType() + " " + message.message.take(windowSize)
     )
+    written += windowSize
+    while (written < messageSize) {
+      terminal.writer().println(" " * headerSize + message.message.slice(written, written + windowSize))
+      written += windowSize
+    }
+
 
     resetReaderLine()
   }
   
-  def printError(errorLine: String): Unit = {
+  private def printError(errorLine: String): Unit = {
     terminal.writer().handleError(errorLine)
 
     stream.stopLogcat()
     resetReaderLine()
   }
   
-  def resetReaderLine(): Unit = {
+  private def resetReaderLine(): Unit = {
     reader.callWidget(LineReader.CLEAR)
     reader.callWidget(LineReader.REDRAW_LINE)
     reader.callWidget(LineReader.REDISPLAY)
